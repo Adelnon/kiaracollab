@@ -1,17 +1,15 @@
 -- RNGConfig.lua
 -- PLACEMENT: ReplicatedStorage > RNGConfig  (ModuleScript)
 --
--- Shared config for the RNG simulator. Both the server (RollService,
--- ShopService, GameSetup) and the client (RNGSimulatorClient) require
--- this so they agree on rarity names, colors, weights, sound IDs, shop
--- items, and remote names. Change values here to rebalance the whole
--- game.
+-- Shared config for the RNG simulator. Both server and client require
+-- this so they agree on rarities, zones, upgrades, pets, currencies,
+-- and remote names.
 
 local RNGConfig = {}
 
--- Rarities are listed from most common to rarest. `weight` is the raw roll
--- weight — probability = weight / sum(weights). `color` is used for UI text
--- and for the pedestal / reel tile color when a roll is displayed in-world.
+---------------------------------------------------------------------------
+-- Rarities
+---------------------------------------------------------------------------
 RNGConfig.Rarities = {
 	{ name = "Common",     weight = 1000, color = Color3.fromRGB(200, 200, 200) },
 	{ name = "Uncommon",   weight = 400,  color = Color3.fromRGB( 90, 220,  90) },
@@ -22,92 +20,291 @@ RNGConfig.Rarities = {
 	{ name = "Godly",      weight = 1,    color = Color3.fromRGB(255,  40,  40) },
 }
 
--- Cooldown between rolls, in seconds. Server enforces this authoritatively.
--- Client can still animate every button press for feel — see RNGSimulatorClient.
-RNGConfig.RollCooldown = 0.8
+---------------------------------------------------------------------------
+-- Currencies
+--
+-- Coins: main currency earned per roll, used to unlock zones.
+-- Gems:  premium currency earned from rolling (rarity-based) and from
+--        pets breaking gem rocks. Used for the upgrade tree.
+---------------------------------------------------------------------------
+RNGConfig.CoinName = "Coins"
+RNGConfig.GemName  = "Gems"
 
--- Length of the client-side scrolling reel animation, in seconds. Keep
--- this a hair shorter than RollCooldown so the reel finishes before the
--- next roll can start.
-RNGConfig.ReelDuration = 0.7
+RNGConfig.CoinsPerRoll = 5
 
--- Name of the RemoteEvent the server creates under ReplicatedStorage at
--- runtime. Client listens on the same name.
-RNGConfig.RemoteEventName = "RNGSimulatorRemote"
-
--- Currency shown in the HUD. Right now nothing spends or earns it — it's
--- infrastructure for future features. See RollService for the leaderstats
--- entry and the persisted DataStore key.
-RNGConfig.CurrencyName = "Gems"
-
--- Sounds. rbxassetid IDs below are well-known Roblox library sounds; if
--- one of them is unavailable in your place the game just plays nothing
--- (playback is wrapped in pcall client-side). Swap for your own uploads
--- when you're ready.
-RNGConfig.Sounds = {
-	Background = "rbxassetid://1848354536", -- looping ambient music
-	RollTick   = "rbxassetid://131961136",  -- short click for each reel tile
-	Win        = "rbxassetid://3120209690", -- pop when landing on a rare (Legendary+)
-	UIClick    = "rbxassetid://876939830",  -- generic UI button click
+RNGConfig.GemsPerRarity = {
+	Common    = 1,
+	Uncommon  = 3,
+	Rare      = 8,
+	Epic      = 25,
+	Legendary = 75,
+	Mythic    = 200,
+	Godly     = 500,
 }
 
--- Rarest tier from which the "win" fanfare plays. Everything at or above
--- this rarity index triggers the Win sound; anything below just clicks.
+---------------------------------------------------------------------------
+-- Zones (5 themed areas)
+--
+-- The first zone is free (spawn zone). Each subsequent zone costs coins
+-- to unlock. Barriers sit between zones. All zones use studs for
+-- aesthetics (SmoothPlastic with stud surfaces).
+---------------------------------------------------------------------------
+RNGConfig.Zones = {
+	{
+		name     = "Grasslands",
+		theme    = "green",
+		cost     = 0,
+		color    = Color3.fromRGB(85, 140, 70),
+		accent   = Color3.fromRGB(120, 180, 100),
+		barrier  = Color3.fromRGB(60, 60, 60),
+		gemRocks = 4,
+		offset   = Vector3.new(0, 0, 0),
+	},
+	{
+		name     = "Desert",
+		theme    = "sand",
+		cost     = 500,
+		color    = Color3.fromRGB(200, 175, 120),
+		accent   = Color3.fromRGB(220, 190, 140),
+		barrier  = Color3.fromRGB(180, 150, 90),
+		gemRocks = 5,
+		offset   = Vector3.new(300, 0, 0),
+	},
+	{
+		name     = "Frozen Tundra",
+		theme    = "ice",
+		cost     = 2000,
+		color    = Color3.fromRGB(180, 210, 240),
+		accent   = Color3.fromRGB(200, 230, 255),
+		barrier  = Color3.fromRGB(140, 180, 220),
+		gemRocks = 6,
+		offset   = Vector3.new(600, 0, 0),
+	},
+	{
+		name     = "Volcanic",
+		theme    = "lava",
+		cost     = 8000,
+		color    = Color3.fromRGB(80, 40, 30),
+		accent   = Color3.fromRGB(200, 80, 40),
+		barrier  = Color3.fromRGB(140, 50, 30),
+		gemRocks = 8,
+		offset   = Vector3.new(900, 0, 0),
+	},
+	{
+		name     = "Celestial",
+		theme    = "space",
+		cost     = 25000,
+		color    = Color3.fromRGB(30, 25, 60),
+		accent   = Color3.fromRGB(160, 140, 255),
+		barrier  = Color3.fromRGB(80, 60, 140),
+		gemRocks = 10,
+		offset   = Vector3.new(1200, 0, 0),
+	},
+}
+
+---------------------------------------------------------------------------
+-- Upgrade tree
+--
+-- Hexagonal layout: center node -> branches to 3 paths.
+-- Each upgrade has a unique key, gem cost, and effect.
+---------------------------------------------------------------------------
+RNGConfig.Upgrades = {
+	{
+		key    = "faster_rolls",
+		name   = "Faster Rolls",
+		desc   = "Reduce roll cooldown by 30%",
+		cost   = 50,
+		branch = "center",
+		tier   = 1,
+		effect = { rollCooldownMul = 0.7 },
+	},
+	-- Pet branch
+	{
+		key    = "pet_speed_1",
+		name   = "Swift Pets",
+		desc   = "Pets move 25% faster",
+		cost   = 100,
+		branch = "pets",
+		tier   = 2,
+		requires = "faster_rolls",
+		effect = { petSpeedMul = 1.25 },
+	},
+	{
+		key    = "pet_luck_1",
+		name   = "Lucky Pets",
+		desc   = "Pets find 50% more gems",
+		cost   = 250,
+		branch = "pets",
+		tier   = 3,
+		requires = "pet_speed_1",
+		effect = { petGemMul = 1.5 },
+	},
+	{
+		key    = "pet_slots_1",
+		name   = "Extra Pet Slot",
+		desc   = "Equip 1 more pet at a time",
+		cost   = 500,
+		branch = "pets",
+		tier   = 4,
+		requires = "pet_luck_1",
+		effect = { petSlotBonus = 1 },
+	},
+	-- Roll upgrade branch
+	{
+		key    = "roll_luck_1",
+		name   = "Lucky Rolls",
+		desc   = "10% better odds on all rolls",
+		cost   = 100,
+		branch = "rolls",
+		tier   = 2,
+		requires = "faster_rolls",
+		effect = { rollLuckMul = 1.1 },
+	},
+	{
+		key    = "roll_luck_2",
+		name   = "Super Rolls",
+		desc   = "20% better odds on all rolls",
+		cost   = 300,
+		branch = "rolls",
+		tier   = 3,
+		requires = "roll_luck_1",
+		effect = { rollLuckMul = 1.2 },
+	},
+	{
+		key    = "roll_multi",
+		name   = "Multi-Roll",
+		desc   = "Each roll counts as 2 rolls",
+		cost   = 750,
+		branch = "rolls",
+		tier   = 4,
+		requires = "roll_luck_2",
+		effect = { multiRoll = 2 },
+	},
+	-- Gem upgrade branch
+	{
+		key    = "gem_boost_1",
+		name   = "Gem Finder",
+		desc   = "25% more gems from rolls",
+		cost   = 100,
+		branch = "gems",
+		tier   = 2,
+		requires = "faster_rolls",
+		effect = { gemRollMul = 1.25 },
+	},
+	{
+		key    = "gem_boost_2",
+		name   = "Gem Hunter",
+		desc   = "50% more gems from rolls",
+		cost   = 300,
+		branch = "gems",
+		tier   = 3,
+		requires = "gem_boost_1",
+		effect = { gemRollMul = 1.5 },
+	},
+	{
+		key    = "gem_magnet",
+		name   = "Gem Magnet",
+		desc   = "Auto-collect nearby gems",
+		cost   = 600,
+		branch = "gems",
+		tier   = 4,
+		requires = "gem_boost_2",
+		effect = { gemMagnet = true },
+	},
+}
+
+---------------------------------------------------------------------------
+-- Pets
+--
+-- Starter pets. Pets orbit the player and break gem rocks in the zone.
+-- Each gem rock gives a base amount of gems; pet multipliers scale it.
+---------------------------------------------------------------------------
+RNGConfig.StarterPetName = "Buddy"
+RNGConfig.BasePetSpeed = 20
+RNGConfig.BaseGemRockValue = 5
+RNGConfig.GemRockRespawnTime = 15
+RNGConfig.MaxEquippedPets = 1
+
+RNGConfig.Pets = {
+	{ name = "Buddy",     gemMul = 1.0,  speed = 1.0,  color = Color3.fromRGB(100, 200, 255) },
+	{ name = "Sparky",    gemMul = 1.5,  speed = 1.2,  color = Color3.fromRGB(255, 220, 80)  },
+	{ name = "Shadow",    gemMul = 2.0,  speed = 1.0,  color = Color3.fromRGB(80, 60, 120)   },
+	{ name = "Blaze",     gemMul = 2.5,  speed = 1.5,  color = Color3.fromRGB(255, 100, 50)  },
+	{ name = "Celestia",  gemMul = 4.0,  speed = 2.0,  color = Color3.fromRGB(180, 160, 255) },
+}
+
+---------------------------------------------------------------------------
+-- Roll / timing
+---------------------------------------------------------------------------
+RNGConfig.RollCooldown = 0.8
+RNGConfig.ReelDuration = 0.7
+
+---------------------------------------------------------------------------
+-- Remotes
+---------------------------------------------------------------------------
+RNGConfig.RemoteEventName = "RNGSimulatorRemote"
+
+---------------------------------------------------------------------------
+-- Sounds
+---------------------------------------------------------------------------
+RNGConfig.Sounds = {
+	Background = "rbxassetid://1848354536",
+	RollTick   = "rbxassetid://131961136",
+	Win        = "rbxassetid://3120209690",
+	UIClick    = "rbxassetid://876939830",
+}
+
 RNGConfig.WinRarityFrom = "Legendary"
 
--- Robux developer-product shop. Each entry becomes a card in the shop
--- panel. Set `productId` to a real DeveloperProduct ID from Studio >
--- Game Settings > Monetization. Leaving productId = 0 keeps the card
--- visible but the click just shows "coming soon" — that's fine while
--- you're still developing.
---
--- `grant` describes what the product hands out server-side. Keep the
--- fields lowercase and simple; ShopService reads them by name.
+---------------------------------------------------------------------------
+-- Shop (Robux developer products — unchanged)
+---------------------------------------------------------------------------
 RNGConfig.Shop = {
 	{
 		key         = "gems_small",
 		title       = "Small Gem Bag",
-		description = "1,000 Gems",
+		description = "100 Gems",
 		robuxLabel  = "R$ 25",
 		productId   = 0,
-		grant       = { gems = 1000 },
+		grant       = { gems = 100 },
 	},
 	{
 		key         = "gems_medium",
 		title       = "Medium Gem Bag",
-		description = "5,500 Gems  (+10% bonus)",
+		description = "550 Gems  (+10% bonus)",
 		robuxLabel  = "R$ 99",
 		productId   = 0,
-		grant       = { gems = 5500 },
+		grant       = { gems = 550 },
 	},
 	{
 		key         = "gems_large",
 		title       = "Big Gem Bag",
-		description = "12,000 Gems  (+20% bonus)",
+		description = "1,200 Gems  (+20% bonus)",
 		robuxLabel  = "R$ 199",
 		productId   = 0,
-		grant       = { gems = 12000 },
+		grant       = { gems = 1200 },
+	},
+	{
+		key         = "coins_pack",
+		title       = "Coin Chest",
+		description = "5,000 Coins",
+		robuxLabel  = "R$ 49",
+		productId   = 0,
+		grant       = { coins = 5000 },
 	},
 	{
 		key         = "luck_x2",
-		title       = "2× Luck (10 min)",
+		title       = "2x Luck (10 min)",
 		description = "Doubles rare weights for 10 minutes",
 		robuxLabel  = "R$ 149",
 		productId   = 0,
 		grant       = { luckMultiplier = 2, luckDurationSeconds = 600 },
 	},
-	{
-		key         = "instant_godly",
-		title       = "Guaranteed Godly",
-		description = "Your next roll is a Godly",
-		robuxLabel  = "R$ 499",
-		productId   = 0,
-		grant       = { guaranteedRarity = "Godly" },
-	},
 }
 
--- Helper: pick a random rarity using the weight table. Kept here so both
--- sides can share it if we ever want to preview odds on the client.
+---------------------------------------------------------------------------
+-- Helpers
+---------------------------------------------------------------------------
 function RNGConfig.pickRarity(rng)
 	rng = rng or Random.new()
 	local total = 0
@@ -125,8 +322,6 @@ function RNGConfig.pickRarity(rng)
 	return RNGConfig.Rarities[1]
 end
 
--- Helper: total odds string like "1 / 1601" for a given rarity name. Used
--- by the client UI so players see "you got Godly (1 / 1601)".
 function RNGConfig.oddsString(rarityName)
 	local total = 0
 	local weight = 0
@@ -140,7 +335,6 @@ function RNGConfig.oddsString(rarityName)
 	return string.format("1 / %d", math.floor(total / weight + 0.5))
 end
 
--- Helper: look up a rarity entry by name (nil if unknown).
 function RNGConfig.findRarity(name)
 	for _, r in ipairs(RNGConfig.Rarities) do
 		if r.name == name then return r end
@@ -148,14 +342,25 @@ function RNGConfig.findRarity(name)
 	return nil
 end
 
--- Helper: 1-indexed position of a rarity in the Rarities table. Higher =
--- rarer. Used by RollService for the "Best" comparison and by the client
--- to decide whether to play the Win sound.
 function RNGConfig.rarityRank(name)
 	for i, r in ipairs(RNGConfig.Rarities) do
 		if r.name == name then return i end
 	end
 	return 0
+end
+
+function RNGConfig.findUpgrade(key)
+	for _, u in ipairs(RNGConfig.Upgrades) do
+		if u.key == key then return u end
+	end
+	return nil
+end
+
+function RNGConfig.findZone(name)
+	for i, z in ipairs(RNGConfig.Zones) do
+		if z.name == name then return z, i end
+	end
+	return nil, 0
 end
 
 return RNGConfig
