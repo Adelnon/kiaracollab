@@ -134,4 +134,4 @@ around the operator. Supported operators: `+`, `-`, `*`, `/`, `//`, `%`,
 
 ---
 
-$${\color{red}\Huge{\textsf{adelnon}}}$$
+$$\Huge{\textsf{{\color{#e81416}a}{\color{#ffa500}d}{\color{#faeb36}e}{\color{#79c314}l}{\color{#487de7}n}{\color{#4b369d}o}{\color{#70369d}n}}}$$
