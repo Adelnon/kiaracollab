@@ -134,4 +134,4 @@ around the operator. Supported operators: `+`, `-`, `*`, `/`, `//`, `%`,
 
 ---
 
-$${\color{blue}\Huge{\textsf{adelnon}}}$$
+$${\color{red}\Huge{\textsf{adelnon}}}$$
