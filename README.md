@@ -131,3 +131,7 @@ Supported operators: +, -, *, /, //, %, **
 Each expression must be exactly `<number> <operator> <number>` with spaces
 around the operator. Supported operators: `+`, `-`, `*`, `/`, `//`, `%`,
 `**`.
+
+---
+
+# adelnon
