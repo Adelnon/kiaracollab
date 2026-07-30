@@ -132,6 +132,30 @@ Each expression must be exactly `<number> <operator> <number>` with spaces
 around the operator. Supported operators: `+`, `-`, `*`, `/`, `//`, `%`,
 `**`.
 
+## Bundled utility: disk_usage_scanner.py
+
+Another standalone tool unrelated to the bot: a dark-mode desktop GUI that
+browses your folders and shows file/folder sizes, similar to a normal file
+explorer.
+
+`disk_usage_scanner.py` uses only Python's standard library (`tkinter`) —
+no extra dependencies. On Linux, `tkinter` is often a separate OS package
+(e.g. `sudo apt install python3-tk`); it's bundled with the official
+Python installer on Windows and macOS.
+
+Run it with:
+
+```sh
+python3 disk_usage_scanner.py            # starts at your home folder
+python3 disk_usage_scanner.py /some/path # starts at a specific folder
+```
+
+Folders start collapsed and are scanned only when you expand them, so it
+opens instantly even on a large drive. Each folder's total size is
+computed in a background thread and fills in next to it once ready,
+without freezing the window. Double-click a folder to browse into it, or
+use the path bar / Up / Refresh controls at the top.
+
 ---
 
 $$\Huge{\textsf{{\color{#e81416}a}{\color{#ffa500}d}{\color{#faeb36}e}{\color{#79c314}l}{\color{#487de7}n}{\color{#4b369d}o}{\color{#70369d}n}}}$$
