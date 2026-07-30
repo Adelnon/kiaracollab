@@ -139,9 +139,9 @@ browses your folders and shows file/folder sizes, similar to a normal file
 explorer.
 
 `disk_usage_scanner.py` uses only Python's standard library (`tkinter`) —
-no extra dependencies. On Linux, `tkinter` is often a separate OS package
-(e.g. `sudo apt install python3-tk`); it's bundled with the official
-Python installer on Windows and macOS.
+no extra dependencies for browsing. On Linux, `tkinter` is often a separate
+OS package (e.g. `sudo apt install python3-tk`); it's bundled with the
+official Python installer on Windows and macOS.
 
 Run it with:
 
@@ -155,6 +155,24 @@ opens instantly even on a large drive. Each folder's total size is
 computed in a background thread and fills in next to it once ready,
 without freezing the window. Double-click a folder to browse into it, or
 use the path bar / Up / Refresh controls at the top.
+
+Every row has a **Delete?** checkbox (click the cell to toggle). Folders
+that share a name — e.g. a `.minecraft` under both `AppData/Roaming` and
+`AppData/Local` — are treated as the same app's data and toggle together;
+a same-named folder nested inside a `Thunderstore` folder is *not* linked
+in, since that's the mod manager's own cache, not the game's.
+
+**AI Recommendations** sends the currently-scanned rows (name, type, size)
+to Claude and pre-checks whatever it flags as safe to delete (caches, temp
+files, build artifacts, stale data), showing its reasons in a popup. This
+reuses the same `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` setup as `/task` (see
+`.env.example`) and additionally needs `python-dotenv` and `anthropic`
+installed — browsing and manual deletion still don't need either.
+
+**Delete Checked** permanently deletes every checked row after one
+confirmation prompt listing what's about to go. There's no undo, so double
+check the list — especially anything the AI pre-checked — before
+confirming.
 
 ---
 
