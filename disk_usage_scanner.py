@@ -9,14 +9,20 @@ GUI never freezes) and filled in once ready.
 
 Each row also has a Delete checkbox. Clicking "AI Recommendations" sends the
 currently-scanned entries to Claude (same ANTHROPIC_API_KEY / CLAUDE_MODEL
-setup as bot.py) and pre-checks whatever it flags as safe to delete; that
-call is the only thing that needs the optional `anthropic` + `python-dotenv`
-dependencies, so plain browsing still needs nothing beyond the stdlib.
+setup as bot.py, called directly over HTTPS with the stdlib) and pre-checks
+whatever it flags as safe to delete; that call optionally uses
+`python-dotenv` to load the .env file, but needs no other third-party
+dependency, so plain browsing still needs nothing beyond the stdlib.
 Folders sharing a name (e.g. a ".minecraft" under both Roaming and Local)
 are treated as linked, so toggling one toggles the rest — except when the
 match sits inside a "thunderstore" folder, which is a different app's data
 and never linked in. Nothing is deleted until you press "Delete Checked"
 and confirm.
+
+With no start-path argument, it opens at the C: drive on Windows (the first
+drive `list_drives()` finds) rather than the user's home folder. The mouse's
+side buttons (back/forward, aka X1/X2) move through folder-navigation
+history the same way they do in a file explorer or browser.
 
 Run it with:
 
@@ -32,6 +38,8 @@ import sys
 import textwrap
 import threading
 import tkinter as tk
+import urllib.error
+import urllib.request
 from tkinter import messagebox, ttk
 
 UNITS = ("B", "KB", "MB", "GB", "TB", "PB")
@@ -186,9 +194,12 @@ class DiskUsageApp:
         self._group_key = {}
         self._groups = {}
         self._loaded = set()
+        self._back_history = []
+        self._forward_history = []
 
         self._build_style()
         self._build_widgets()
+        self._bind_mouse_navigation()
         self.root.after(100, self._drain_size_queue)
         self.root.after(300, self._drain_ai_queue)
 
@@ -274,13 +285,28 @@ class DiskUsageApp:
         status = ttk.Label(self.root, textvariable=self.status_var, anchor=tk.W)
         status.pack(fill=tk.X, padx=6, pady=(0, 6))
 
+    def _bind_mouse_navigation(self):
+        # Tk maps a mouse's side "back"/"forward" (X1/X2) buttons to button
+        # numbers 8 and 9 on Windows; some Tk/X11 builds don't recognize
+        # those button numbers at all, so a failed bind there is non-fatal.
+        bindings = (("<Button-8>", self._go_back), ("<Button-9>", self._go_forward))
+        for widget in (self.root, self.tree):
+            for sequence, handler in bindings:
+                try:
+                    widget.bind(sequence, lambda _e, handler=handler: handler())
+                except tk.TclError:
+                    pass
+
     # -- Navigation ----------------------------------------------------
 
-    def navigate(self, path):
+    def navigate(self, path, _record_history=True):
         path = os.path.abspath(os.path.expanduser(path)) if path else list_drives()[0]
         if not os.path.isdir(path):
             self.status_var.set(f"Not a folder: {path}")
             return
+        if _record_history and getattr(self, "current_root", None) and path != self.current_root:
+            self._back_history.append(self.current_root)
+            self._forward_history.clear()
         self.tree.delete(*self.tree.get_children())
         self._node_path.clear()
         self._loaded.clear()
@@ -298,6 +324,20 @@ class DiskUsageApp:
         parent = os.path.dirname(self.current_root.rstrip(os.sep))
         if parent and parent != self.current_root:
             self.navigate(parent)
+
+    def _go_back(self):
+        if not self._back_history:
+            return
+        self._forward_history.append(self.current_root)
+        previous = self._back_history.pop()
+        self.navigate(previous, _record_history=False)
+
+    def _go_forward(self):
+        if not self._forward_history:
+            return
+        self._back_history.append(self.current_root)
+        next_path = self._forward_history.pop()
+        self.navigate(next_path, _record_history=False)
 
     def _refresh_root(self):
         self.navigate(self.current_root)
@@ -450,33 +490,45 @@ class DiskUsageApp:
         except ImportError:
             pass
 
-        try:
-            import anthropic
-        except ImportError as exc:
-            raise RuntimeError(
-                "The 'anthropic' package isn't installed (pip install anthropic)."
-            ) from exc
-
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY isn't set (see .env.example).")
         model = os.getenv("CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL).strip() or DEFAULT_CLAUDE_MODEL
 
         listing = "\n".join(f"- {e['path']} ({e['type']}, {e['size']})" for e in entries)
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model=model,
-            max_tokens=1500,
-            system=AI_SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Current folder: {self.current_root}\n\nEntries:\n{listing}",
-                }
-            ],
+        body = json.dumps(
+            {
+                "model": model,
+                "max_tokens": 1500,
+                "system": AI_SYSTEM_PROMPT,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"Current folder: {self.current_root}\n\nEntries:\n{listing}",
+                    }
+                ],
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=body,
+            method="POST",
+            headers={
+                "content-type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
         )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as resp:
+                response = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f"Claude API request failed: {exc.code} {exc.reason}") from exc
+
         text = "".join(
-            block.text for block in response.content if getattr(block, "type", None) == "text"
+            block.get("text", "")
+            for block in response.get("content", [])
+            if block.get("type") == "text"
         )
         valid_paths = {e["path"] for e in entries}
         return _parse_ai_response(text, valid_paths)
@@ -588,7 +640,7 @@ class DiskUsageApp:
 
 
 def main():
-    start_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~")
+    start_path = sys.argv[1] if len(sys.argv) > 1 else list_drives()[0]
     if not os.path.isdir(start_path):
         start_path = list_drives()[0]
 
