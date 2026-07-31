@@ -1,6 +1,7 @@
 # kiaracollab
 
-A Discord bot whose entire interface is a single slash command: **`/task`**.
+A Discord bot built around a single slash command, **`/task`**, plus a small
+`/uptime` utility command.
 
 Type what you want done and Claude figures out how to do it using Discord's
 API — creating channels and roles, banning or timing out users, sending

@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 import textwrap
+import time
 from typing import Any, Dict, List, Optional, Set
 
 import discord
@@ -78,6 +79,14 @@ def _build_intents() -> discord.Intents:
     intents.members = True  # privileged — enable in the developer portal
     intents.message_content = True  # privileged
     return intents
+
+
+def _format_uptime(seconds: float) -> str:
+    total = int(seconds)
+    days, total = divmod(total, 86400)
+    hours, total = divmod(total, 3600)
+    minutes, _ = divmod(total, 60)
+    return f"{days}d {hours}h {minutes}m"
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +222,7 @@ class TaskBot(discord.Client):
         self.max_turns = max_turns
         self.allowed_users = allowed_users
         self.allowed_guilds = allowed_guilds
+        self.start_time = time.monotonic()
 
     async def setup_hook(self) -> None:
         # Global sync. This can take up to an hour to propagate the first time;
@@ -305,6 +315,13 @@ def register_commands(bot: TaskBot) -> None:
         if len(body) > 1900:
             body = body[:1900] + "…"
         await interaction.followup.send(body)
+
+    @bot.tree.command(
+        name="uptime",
+        description="Show how long the bot has been running.",
+    )
+    async def uptime_cmd(interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(_format_uptime(time.monotonic() - bot.start_time))
 
 
 # ---------------------------------------------------------------------------
