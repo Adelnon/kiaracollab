@@ -175,6 +175,60 @@ confirmation prompt listing what's about to go. There's no undo, so double
 check the list — especially anything the AI pre-checked — before
 confirming.
 
+## Bundled utility: alexa_discord_mute.py
+
+Say **"Alexa, Stummschaltung"** and it toggles your Discord microphone mute.
+
+Alexa can't run a command on your PC directly, but it can switch smart-home
+plugs on and off with no cloud skill or account linking. `alexa_discord_mute.py`
+pretends to be one of those plugs (a Belkin WeMo socket). When Alexa turns the
+plug on or off, the script presses Discord's *Toggle Mute* hotkey — a self-mute
+of your mic only, so you still hear everyone (it does **not** deafen you).
+
+```
+"Alexa, Stummschaltung"  ->  Alexa flips the emulated plug
+                         ->  the script presses a global hotkey
+                         ->  Discord toggles your mic mute
+```
+
+Everything except the key-press uses only Python's standard library; the
+key-press needs [`pynput`](https://pypi.org/project/pynput/):
+
+```sh
+pip install pynput
+```
+
+Setup, once:
+
+1. In Discord: *User Settings → Keybinds → Add a Keybind*, choose action
+   **Toggle Mute**, and record the same combo the script sends
+   (default `Ctrl+Alt+M`). Discord keybinds are global, so they fire even when
+   Discord isn't the focused window.
+2. Run the script on the PC that runs Discord, on the same network as your
+   Echo:
+
+   ```sh
+   python3 alexa_discord_mute.py
+   ```
+
+3. Say *"Alexa, discover devices"* (or Alexa app → *Devices → +*). A plug
+   named **Stummschaltung** appears.
+4. Say *"Alexa, turn on Stummschaltung"* to toggle your mute. For the exact
+   phrase *"Alexa, Stummschaltung"*, make an Alexa **Routine** whose spoken
+   phrase is `Stummschaltung` and whose action turns that plug on. Because the
+   script treats every on/off as a toggle, each trigger simply flips your mic.
+
+Handy flags:
+
+```sh
+python3 alexa_discord_mute.py --name "Mute"          # rename the device
+python3 alexa_discord_mute.py --hotkey ctrl+shift+m  # match a different keybind
+python3 alexa_discord_mute.py --test                 # fire the hotkey once and exit
+```
+
+Use `--test` first to confirm the hotkey actually flips your Discord mute
+before wiring up Alexa.
+
 ---
 
 $$\Huge{\textsf{{\color{#e81416}a}{\color{#ffa500}d}{\color{#faeb36}e}{\color{#79c314}l}{\color{#487de7}n}{\color{#4b369d}o}{\color{#70369d}n}}}$$
