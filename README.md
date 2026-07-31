@@ -79,6 +79,41 @@ The tool set, the schemas Claude sees, and the safety caps live in
    Slash commands are synced globally on startup; the first sync can take
    up to an hour to appear in a guild. Subsequent runs are instant.
 
+## Web front-end
+
+The repo ships a small static website — the bot's landing page — served by a
+lightweight Flask app that lives in [`web/`](web/). It's a moderation-focused
+showcase (features, command reference, safety notes, setup) and it also shows
+the bot's **live status**: whether it's online, how many servers and members
+it's watching, and its uptime.
+
+It's off by default. To serve it while the bot runs, set `WEB_ENABLED=true`
+(and optionally `WEB_HOST`/`WEB_PORT`) in `.env`, then start the bot as usual:
+
+```sh
+python bot.py
+# then open http://127.0.0.1:8080
+```
+
+How it fits together:
+
+- The Discord client pushes a plain-data snapshot of its state into a
+  thread-safe holder ([`web/status.py`](web/status.py)) whenever it becomes
+  ready or joins/leaves a guild.
+- The Flask app ([`web/server.py`](web/server.py)) runs in a daemon thread
+  alongside the bot's asyncio loop. It serves the static page from
+  [`web/static/`](web/static/) and one JSON endpoint, `/api/status`, backed by
+  that snapshot.
+- The page ([`web/static/app.js`](web/static/app.js)) polls `/api/status`
+  every few seconds and updates the status pill and stat cards, falling back
+  to an "offline" state if the bot isn't reachable.
+
+| Variable | Meaning |
+| --- | --- |
+| `WEB_ENABLED` | Serve the landing page while the bot runs. Default `false`. |
+| `WEB_HOST` | Interface to bind. `127.0.0.1` = local only; `0.0.0.0` to expose. |
+| `WEB_PORT` | Port for the web front-end. Default `8080`. |
+
 ## Safety notes
 
 - `/task` is gated: only users in `TASK_ALLOWED_USER_IDS` (or, if that's

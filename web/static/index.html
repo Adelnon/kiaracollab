@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kiara — AI moderation for Discord</title>
+  <meta
+    name="description"
+    content="Kiara is an AI-driven Discord moderation bot. Describe what you want done and it bans, kicks, times out, and rebuilds your server on command."
+  />
+  <link rel="stylesheet" href="style.css" />
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%235865F2'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3EK%3C/text%3E%3C/svg%3E"
+  />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark">K</span>
+        <span class="brand-name">Kiara</span>
+      </a>
+      <nav class="nav">
+        <a href="#features">Features</a>
+        <a href="#commands">Commands</a>
+        <a href="#safety">Safety</a>
+        <a href="#setup">Setup</a>
+      </nav>
+      <span id="status-pill" class="status-pill status-unknown" title="Live bot status">
+        <span class="dot"></span>
+        <span id="status-text">Checking…</span>
+      </span>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <p class="eyebrow">AI-powered Discord moderation</p>
+        <h1>Moderate your server<br />by simply saying what you want.</h1>
+        <p class="lede">
+          Kiara turns plain-English requests into real moderation actions —
+          banning, kicking, timing out, cleaning up channels and rebuilding
+          your server layout — all from a single <code>/task</code> command.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#setup">Get started</a>
+          <a class="btn btn-ghost" href="#commands">See what it does</a>
+        </div>
+
+        <div class="live-panel" aria-live="polite">
+          <div class="live-stat">
+            <span class="live-value" id="stat-status">—</span>
+            <span class="live-label">Status</span>
+          </div>
+          <div class="live-stat">
+            <span class="live-value" id="stat-guilds">—</span>
+            <span class="live-label">Servers</span>
+          </div>
+          <div class="live-stat">
+            <span class="live-value" id="stat-members">—</span>
+            <span class="live-label">Members watched</span>
+          </div>
+          <div class="live-stat">
+            <span class="live-value" id="stat-uptime">—</span>
+            <span class="live-label">Uptime</span>
+          </div>
+        </div>
+        <p class="live-note" id="live-note">Live status from your running bot.</p>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="wrap">
+        <h2 class="section-title">Built for moderators</h2>
+        <p class="section-sub">
+          Every feature is aimed at keeping a server clean, safe and organised
+          with as little friction as possible.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <div class="card-icon">🛡️</div>
+            <h3>One-command moderation</h3>
+            <p>
+              Ban, kick or time out a member by name — Kiara looks up the user,
+              checks its permissions, and acts. No copying snowflake IDs.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🌐</div>
+            <h3>Cross-server bans</h3>
+            <p>
+              Remove a bad actor from every server the bot shares with them in a
+              single request, skipping any where it lacks the permission.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🧹</div>
+            <h3>Channel clean-up</h3>
+            <p>
+              Bulk-delete recent messages, rename channels, set topics, or purge
+              spam — the tedious housekeeping, handled in one line.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🏗️</div>
+            <h3>Server layout in one shot</h3>
+            <p>
+              Spin up categories, channels and roles with the right permissions
+              to bootstrap a whole community structure at once.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🔑</div>
+            <h3>Role management</h3>
+            <p>
+              Create, assign and remove roles — colour, hoisting, permissions
+              and mentionability all controllable from a request.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🔒</div>
+            <h3>Permission-gated</h3>
+            <p>
+              Only allow-listed users (or guild administrators) can run
+              <code>/task</code>, and the bot never exceeds its Discord perms.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands" class="section section-alt">
+      <div class="wrap">
+        <h2 class="section-title">Commands</h2>
+        <p class="section-sub">Two slash commands. The first does almost everything.</p>
+
+        <div class="command">
+          <div class="command-head">
+            <code class="command-name">/task &lt;request&gt;</code>
+            <span class="command-tag">core</span>
+          </div>
+          <p>
+            Describe anything you want done and Claude figures out the sequence
+            of Discord actions to carry it out, then reports back a plain-English
+            summary of what it did.
+          </p>
+          <ul class="examples">
+            <li><code>/task ban @spammer for raiding and delete their last day of messages</code></li>
+            <li><code>/task time out @loud-user for 30 minutes</code></li>
+            <li><code>/task give @newbie the Member role and welcome them in #general</code></li>
+            <li><code>/task rename #general to #lobby and set its topic to "hang out here"</code></li>
+            <li><code>/task set this server up like a community — welcome, rules, general, voice, mod-only</code></li>
+          </ul>
+        </div>
+
+        <div class="command">
+          <div class="command-head">
+            <code class="command-name">/uptime</code>
+            <span class="command-tag">utility</span>
+          </div>
+          <p>Show how long the bot has been running.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="safety" class="section">
+      <div class="wrap">
+        <h2 class="section-title">Safety first</h2>
+        <p class="section-sub">
+          Powerful moderation tools need guard rails. Kiara ships with them on.
+        </p>
+        <div class="grid grid-2">
+          <article class="card">
+            <h3>Access is gated</h3>
+            <p>
+              <code>/task</code> only runs for allow-listed user IDs, or — if no
+              list is set — for members with the guild Administrator permission.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Never exceeds its permissions</h3>
+            <p>
+              A ban without <em>Ban Members</em> comes back as
+              <code>forbidden</code>, not a crash. The bot can only do what
+              Discord already lets it do.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Turn cap per request</h3>
+            <p>
+              Each <code>/task</code> is bounded by a configurable maximum number
+              of agent turns, so a request can't spiral out of control.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Transparent actions</h3>
+            <p>
+              Every reply lists exactly what the bot did, so there's an audit
+              trail of each ban, kick, timeout and change.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="setup" class="section section-alt">
+      <div class="wrap">
+        <h2 class="section-title">Get started</h2>
+        <p class="section-sub">Self-host in a few minutes.</p>
+        <ol class="steps">
+          <li>
+            <strong>Create a Discord application</strong> and bot, enabling the
+            <em>Server Members</em> and <em>Message Content</em> intents.
+          </li>
+          <li>
+            <strong>Invite the bot</strong> with the <code>bot</code> and
+            <code>applications.commands</code> scopes and the moderation
+            permissions (Manage Channels/Roles, Kick, Ban, Moderate Members,
+            Send/Manage Messages).
+          </li>
+          <li>
+            <strong>Copy <code>.env.example</code> to <code>.env</code></strong>
+            and fill in your Discord token and Anthropic API key.
+          </li>
+          <li>
+            <strong>Run <code>python bot.py</code></strong> — set
+            <code>WEB_ENABLED=true</code> to serve this page with live status.
+          </li>
+        </ol>
+        <pre class="codeblock"><code>cp .env.example .env
+# edit .env — set DISCORD_TOKEN, ANTHROPIC_API_KEY, WEB_ENABLED=true
+pip install -r requirements.txt
+python bot.py</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span class="brand small">
+        <span class="brand-mark">K</span> Kiara
+      </span>
+      <span class="footer-note">AI moderation for Discord · self-hosted</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

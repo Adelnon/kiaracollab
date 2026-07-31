@@ -26,6 +26,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 
 from tools import TOOL_SCHEMAS, ToolContext, run_tool
+from web.status import BotStatus
 
 
 log = logging.getLogger("kiara.task-bot")
@@ -79,6 +80,13 @@ def _build_intents() -> discord.Intents:
     intents.members = True  # privileged — enable in the developer portal
     intents.message_content = True  # privileged
     return intents
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _format_uptime(seconds: float) -> str:
@@ -214,7 +222,9 @@ async def run_agent(
 
 class TaskBot(discord.Client):
     def __init__(self, *, model: str, anthropic: AsyncAnthropic, max_turns: int,
-                 allowed_users: Set[int], allowed_guilds: Set[int]) -> None:
+                 allowed_users: Set[int], allowed_guilds: Set[int],
+                 web_enabled: bool = False, web_host: str = "127.0.0.1",
+                 web_port: int = 8080) -> None:
         super().__init__(intents=_build_intents())
         self.tree = app_commands.CommandTree(self)
         self.model = model
@@ -223,6 +233,11 @@ class TaskBot(discord.Client):
         self.allowed_users = allowed_users
         self.allowed_guilds = allowed_guilds
         self.start_time = time.monotonic()
+        self.web_enabled = web_enabled
+        self.web_host = web_host
+        self.web_port = web_port
+        self.web_status = BotStatus()
+        self._web_started = False
 
     async def setup_hook(self) -> None:
         # Global sync. This can take up to an hour to propagate the first time;
@@ -230,8 +245,38 @@ class TaskBot(discord.Client):
         await self.tree.sync()
         log.info("slash commands synced")
 
+    def _refresh_web_status(self) -> None:
+        """Push a fresh snapshot of the bot's state to the web front-end."""
+        if not self.web_enabled or self.user is None:
+            return
+        guilds = [
+            {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
+            for g in self.guilds
+        ]
+        member_total = sum(g["member_count"] for g in guilds)
+        self.web_status.set_online(
+            username=str(self.user),
+            guilds=guilds,
+            member_count=member_total,
+        )
+
     async def on_ready(self) -> None:
         log.info("logged in as %s (%s), in %d guilds", self.user, self.user and self.user.id, len(self.guilds))
+        if self.web_enabled:
+            self._refresh_web_status()
+            if not self._web_started:
+                # Imported lazily so the bot still starts if Flask isn't installed
+                # and the web front-end is disabled.
+                from web.server import start_web_server
+
+                start_web_server(self.web_status, self.web_host, self.web_port)
+                self._web_started = True
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        self._refresh_web_status()
+
+    async def on_guild_remove(self, guild: discord.Guild) -> None:
+        self._refresh_web_status()
 
 
 def _user_is_allowed(bot: TaskBot, interaction: discord.Interaction) -> bool:
@@ -345,12 +390,22 @@ def main() -> int:
     except ValueError:
         max_turns = 12
 
+    web_enabled = _env_bool("WEB_ENABLED", False)
+    web_host = os.getenv("WEB_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    try:
+        web_port = int(os.getenv("WEB_PORT", "8080"))
+    except ValueError:
+        web_port = 8080
+
     bot = TaskBot(
         model=model,
         anthropic=AsyncAnthropic(api_key=anthropic_key),
         max_turns=max_turns,
         allowed_users=_load_id_set("TASK_ALLOWED_USER_IDS"),
         allowed_guilds=_load_id_set("TASK_ALLOWED_GUILD_IDS"),
+        web_enabled=web_enabled,
+        web_host=web_host,
+        web_port=web_port,
     )
     register_commands(bot)
     bot.run(discord_token, log_handler=None)
