@@ -264,6 +264,34 @@ python3 alexa_discord_mute.py --test                 # fire the hotkey once and 
 Use `--test` first to confirm the hotkey actually flips your Discord mute
 before wiring up Alexa.
 
+### If Alexa can't find the device
+
+WeMo-style discovery is the fiddly part. The script announces itself on the
+network every 30 seconds (not just when Alexa asks), which is what lets an Echo
+find it — but a few things still trip it up:
+
+- **Same network.** The PC and the Echo must be on the *same* Wi-Fi and subnet.
+  Guest networks and "AP/client isolation" block the discovery traffic. 2.4GHz
+  vs 5GHz on the same router is usually fine.
+- **Firewall.** When Windows first runs it, click **Allow access** on the
+  firewall prompt (Private networks). If you dismissed it, allow
+  `python.exe` through Windows Defender Firewall, or the Echo can't reach the
+  device's little web server.
+- **Port 1900 already in use.** On Windows the built-in *SSDP Discovery*
+  service often owns UDP 1900. The script prints a note if so and keeps
+  working via its own announcements, so this is usually harmless — but if
+  discovery still fails you can stop that service (`services.msc` → *SSDP
+  Discovery* → Stop) and restart the script.
+- **Watch the log.** Run it, say *"Alexa, discover devices"*, and watch the
+  window. A line like `Alexa fetched setup.xml … device is being discovered`
+  means it worked. No such line after ~45 seconds points to network/firewall,
+  not the script. Add `--verbose` to also see each incoming search.
+- **Give it a moment / retry.** Discovery can take 20–45 seconds; if the first
+  *"discover devices"* finds nothing, leave the script running and say it once
+  more.
+- **Port clash on startup.** If the script itself won't start because port
+  52000 is taken, pass another one: `python3 alexa_discord_mute.py --port 52001`.
+
 ---
 
 $$\Huge{\textsf{{\color{#e81416}a}{\color{#ffa500}d}{\color{#faeb36}e}{\color{#79c314}l}{\color{#487de7}n}{\color{#4b369d}o}{\color{#70369d}n}}}$$

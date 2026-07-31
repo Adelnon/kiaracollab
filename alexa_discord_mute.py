@@ -177,6 +177,7 @@ class _DeviceHTTP(BaseHTTPRequestHandler):
     device_name = "Stummschaltung"
     serial = "000000000000"
     on_trigger = staticmethod(lambda: None)
+    verbose = False
 
     def log_message(self, *_args):  # silence per-request stderr spam
         pass
@@ -192,8 +193,14 @@ class _DeviceHTTP(BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802 (BaseHTTPRequestHandler API)
         if self.path.endswith("setup.xml"):
+            # Seeing this line means Alexa found us and is reading the device
+            # description — discovery reached the HTTP stage successfully.
+            print(f"[{self.device_name}] Alexa fetched setup.xml "
+                  f"(from {self.client_address[0]}) — device is being discovered")
             self._send(SETUP_XML.format(name=self.device_name, serial=self.serial))
         else:
+            if self.verbose:
+                print(f"[{self.device_name}] GET {self.path} -> 404")
             self.send_response(404)
             self.end_headers()
 
@@ -219,36 +226,89 @@ class _DeviceHTTP(BaseHTTPRequestHandler):
             self.end_headers()
 
 
-def _make_handler(name: str, serial: str, on_trigger):
+def _make_handler(name: str, serial: str, on_trigger, verbose: bool):
     return type(
         "BoundDeviceHTTP",
         (_DeviceHTTP,),
-        {"device_name": name, "serial": serial, "on_trigger": staticmethod(on_trigger)},
+        {
+            "device_name": name,
+            "serial": serial,
+            "on_trigger": staticmethod(on_trigger),
+            "verbose": verbose,
+        },
     )
 
 
+# The search/announce targets an Echo cares about when hunting for WeMo plugs.
+# We answer M-SEARCHes for these and announce ourselves under each one.
+_TARGETS = ("upnp:rootdevice", "urn:Belkin:device:**")
+
+
 class SSDPResponder(threading.Thread):
-    """Answers the Echo's UPnP/SSDP M-SEARCH broadcasts so it finds the device."""
+    """Makes the device discoverable over UPnP/SSDP.
+
+    Two independent mechanisms, because discovery fails in different ways:
+
+    * We *listen* for the Echo's M-SEARCH broadcasts and reply. This is the
+      classic path, but on Windows the built-in "SSDP Discovery" service often
+      already owns UDP 1900 and swallows those packets before we see them.
+    * We also *announce* ourselves with periodic NOTIFY ssdp:alive multicasts.
+      The Echo picks these up passively, so discovery still works even when we
+      can't receive M-SEARCH at all. This is the reliable path.
+    """
 
     MCAST_GRP = "239.255.255.250"
     MCAST_PORT = 1900
 
-    def __init__(self, ip: str, http_port: int, serial: str):
+    def __init__(self, ip: str, http_port: int, serial: str, verbose: bool = False):
         super().__init__(daemon=True)
         self.ip = ip
         self.http_port = http_port
         self.serial = serial
-        self.uuid = str(uuid.uuid4())
+        self.verbose = verbose
+        self.uuid = uuid.uuid5(uuid.NAMESPACE_DNS, "fauxmo-" + serial)
         self._stop = threading.Event()
+        # Dedicated sender bound to our LAN interface, so multicast leaves the
+        # right adapter. Independent of whether the listener below binds.
+        self._tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self._tx.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 4)
+        try:
+            self._tx.setsockopt(
+                socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.ip)
+            )
+        except OSError:
+            pass
 
-    def run(self):
+    # -- listening for M-SEARCH -------------------------------------------
+    def _listen_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("", self.MCAST_PORT))
+        try:  # harmless where unsupported (e.g. Windows)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except (AttributeError, OSError):
+            pass
+        try:
+            sock.bind(("", self.MCAST_PORT))
+        except OSError as exc:
+            print(
+                f"  ! Could not listen on UDP {self.MCAST_PORT} ({exc}).\n"
+                "    Another program owns it — on Windows that's usually the\n"
+                '    "SSDP Discovery" service. That\'s OK: this helper will still\n'
+                "    announce itself, which is enough for Alexa to find it.",
+                file=sys.stderr,
+            )
+            sock.close()
+            return None
         mreq = struct.pack("4sl", socket.inet_aton(self.MCAST_GRP), socket.INADDR_ANY)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         sock.settimeout(1.0)
+        return sock
 
+    def run(self):
+        sock = self._listen_socket()
+        if sock is None:  # can't receive; announcements still carry discovery
+            self._stop.wait()
+            return
         while not self._stop.is_set():
             try:
                 data, addr = sock.recvfrom(2048)
@@ -259,17 +319,28 @@ class SSDPResponder(threading.Thread):
             text = data.decode("utf-8", "ignore")
             if "M-SEARCH" not in text or "ssdp:discover" not in text:
                 continue
-            # Reply to the search targets Alexa uses when hunting for WeMo plugs.
-            if not any(
-                st in text
-                for st in ("urn:Belkin:device:**", "upnp:rootdevice", "ssdp:all")
-            ):
+            if not any(t in text for t in _TARGETS) and "ssdp:all" not in text:
                 continue
-            sock.sendto(self._response(), addr)
-
+            if self.verbose:
+                print(f"[ssdp] M-SEARCH from {addr[0]} -> replying")
+            # Real WeMo answers once per target; mirror that.
+            for target in _TARGETS:
+                sock.sendto(self._search_response(target), addr)
         sock.close()
 
-    def _response(self) -> bytes:
+    # -- proactive announcements ------------------------------------------
+    def announce(self, alive: bool = True):
+        for target in _TARGETS:
+            try:
+                self._tx.sendto(self._notify(target, alive), (self.MCAST_GRP, self.MCAST_PORT))
+            except OSError:
+                pass
+
+    def _usn(self, target: str) -> str:
+        base = f"uuid:Socket-1_0-{self.serial}"
+        return base if target == base else f"{base}::{target}"
+
+    def _search_response(self, target: str) -> bytes:
         location = f"http://{self.ip}:{self.http_port}/setup.xml"
         msg = (
             "HTTP/1.1 200 OK\r\n"
@@ -279,14 +350,40 @@ class SSDPResponder(threading.Thread):
             'OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01\r\n'
             f"01-NLS: {self.uuid}\r\n"
             "SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
-            "ST: urn:Belkin:device:**\r\n"
-            f"USN: uuid:Socket-1_0-{self.serial}::urn:Belkin:device:**\r\n"
+            f"ST: {target}\r\n"
+            f"USN: {self._usn(target)}\r\n"
+            "\r\n"
+        )
+        return msg.encode("utf-8")
+
+    def _notify(self, target: str, alive: bool) -> bytes:
+        location = f"http://{self.ip}:{self.http_port}/setup.xml"
+        msg = (
+            "NOTIFY * HTTP/1.1\r\n"
+            f"HOST: {self.MCAST_GRP}:{self.MCAST_PORT}\r\n"
+            "CACHE-CONTROL: max-age=86400\r\n"
+            f"LOCATION: {location}\r\n"
+            f"NT: {target}\r\n"
+            f"NTS: ssdp:{'alive' if alive else 'byebye'}\r\n"
+            "SERVER: Unspecified, UPnP/1.0, Unspecified\r\n"
+            f"USN: {self._usn(target)}\r\n"
             "\r\n"
         )
         return msg.encode("utf-8")
 
     def stop(self):
         self._stop.set()
+
+
+def _announce_loop(ssdp: "SSDPResponder", stop: threading.Event):
+    """Announce at startup (a quick burst) and then every 30s until stopped."""
+    for _ in range(3):
+        ssdp.announce(alive=True)
+        if stop.wait(1.0):
+            break
+    while not stop.wait(30.0):
+        ssdp.announce(alive=True)
+    ssdp.announce(alive=False)  # polite goodbye on shutdown
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +415,11 @@ def main(argv=None) -> int:
         "--test",
         action="store_true",
         help="Press the mute hotkey once and exit (verify the keybind works).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Log every SSDP search and HTTP request (useful for debugging discovery).",
     )
     args = parser.parse_args(argv)
 
@@ -353,18 +455,35 @@ def main(argv=None) -> int:
     # recognising the same plug across restarts instead of adding duplicates.
     serial = uuid.uuid5(uuid.NAMESPACE_DNS, args.name).hex[:12]
 
-    handler = _make_handler(args.name, serial, toggle_mute)
-    httpd = HTTPServer(("", args.port), handler)
+    handler = _make_handler(args.name, serial, toggle_mute, args.verbose)
+    try:
+        httpd = HTTPServer(("", args.port), handler)
+    except OSError as exc:
+        print(
+            f"Could not start the device's HTTP server on port {args.port}: {exc}\n"
+            f"Pick a free one with --port, e.g.  python3 alexa_discord_mute.py "
+            f"--port {args.port + 1}",
+            file=sys.stderr,
+        )
+        return 3
     http_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     http_thread.start()
 
-    ssdp = SSDPResponder(ip, args.port, serial)
+    ssdp = SSDPResponder(ip, args.port, serial, verbose=args.verbose)
     ssdp.start()
+    announce_stop = threading.Event()
+    announce_thread = threading.Thread(
+        target=_announce_loop, args=(ssdp, announce_stop), daemon=True
+    )
+    announce_thread.start()
 
     print(f'Emulating a WeMo plug named "{args.name}" at http://{ip}:{args.port}')
     print(f'Mute hotkey: {args.hotkey}  (set the same combo in Discord as "Toggle Mute")')
-    print('Now say: "Alexa, discover devices"  — then "Alexa, turn on ' f'{args.name}"')
-    print("Press Ctrl+C to stop.")
+    print("Announcing on the network so Alexa can find it...")
+    print(f'Now say: "Alexa, discover devices"  — then "Alexa, turn on {args.name}"')
+    print("Watch for a 'fetched setup.xml' line below — that's Alexa discovering it.")
+    print("Make sure this PC and the Echo are on the SAME Wi-Fi (not a guest network),")
+    print("and allow this program through the firewall if Windows asks. Ctrl+C to stop.")
 
     try:
         while True:
@@ -372,6 +491,7 @@ def main(argv=None) -> int:
     except KeyboardInterrupt:
         print("\nStopping...")
     finally:
+        announce_stop.set()
         ssdp.stop()
         httpd.shutdown()
     return 0
