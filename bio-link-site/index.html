@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onelink — one page for everything you make</title>
+  <meta
+    name="description"
+    content="Onelink is a free bio-link builder. Claim a handle, drop your links, and share one page that actually looks like you — no premium tier, no paywall."
+  />
+  <link rel="stylesheet" href="style.css" />
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%237c5cff'/%3E%3Ctext x='50' y='70' font-size='58' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E%40%3C/text%3E%3C/svg%3E"
+  />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark">@</span>
+        <span class="brand-name">Onelink</span>
+      </a>
+      <nav class="nav">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#compare">Compare</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-primary btn-sm" href="#claim">Claim your handle</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <p class="eyebrow">Free bio-link builder</p>
+        <h1>
+          Make a page that actually looks like
+          <span class="rotator" id="rotator" aria-live="polite">you</span>.
+        </h1>
+        <p class="lede">
+          Onelink gives you one link for everything — your shop, your socials,
+          your latest drop. Claim a handle, paste your links, and make the page
+          yours with effects, fonts and colours. Every feature is free.
+        </p>
+
+        <form class="claim" id="claim" autocomplete="off">
+          <span class="claim-prefix">onelink.to/</span>
+          <input
+            id="handle"
+            class="claim-input"
+            type="text"
+            inputmode="latin"
+            placeholder="yourname"
+            aria-label="Choose your handle"
+            maxlength="24"
+          />
+          <button class="btn btn-primary" type="submit">Claim it</button>
+        </form>
+        <p class="claim-note" id="claim-note">Handles are 2–24 characters — letters, numbers, dashes.</p>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="wrap">
+        <h2 class="section-title">Everything the paid tiers gate — just free</h2>
+        <p class="section-sub">
+          No premium plan, no locked toggles. Here's what you get out of the box.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <div class="card-icon">🔗</div>
+            <h3>Unlimited links</h3>
+            <p>Add as many links as you like. Reorder them by dragging — the order you set is the order visitors see.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🎨</div>
+            <h3>Themes &amp; effects</h3>
+            <p>Backgrounds, gradients, cursors, hover effects and animated accents. Tweak everything, no upgrade prompt.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🅰️</div>
+            <h3>Any font you want</h3>
+            <p>Pick from the full Google Fonts library for your name, links and bio — mix and match freely.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🖼️</div>
+            <h3>Auto icons</h3>
+            <p>Paste a URL and the right platform icon appears automatically — GitHub, TikTok, Discord, Spotify and more.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">🎵</div>
+            <h3>Audio &amp; embeds</h3>
+            <p>Attach a track that plays on your page, or embed a video and a live music widget right in the layout.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">📈</div>
+            <h3>Click analytics</h3>
+            <p>See views and per-link clicks over time, so you know what people actually tap — no add-on required.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section section-alt">
+      <div class="wrap">
+        <h2 class="section-title">Live in three steps</h2>
+        <p class="section-sub">From nothing to a shareable page in about a minute.</p>
+        <ol class="steps">
+          <li>
+            <strong>Take your handle.</strong> Pick a name that's still free —
+            it becomes <code>onelink.to/yourname</code>.
+          </li>
+          <li>
+            <strong>Drop your links.</strong> Paste your URLs and the matching
+            icons fill in on their own. Drag to reorder.
+          </li>
+          <li>
+            <strong>Make it yours.</strong> Choose a theme, font and effects,
+            add a bio and avatar, then hit publish.
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="compare" class="section">
+      <div class="wrap">
+        <h2 class="section-title">Side by side</h2>
+        <p class="section-sub">What you'd normally pay for, and what costs nothing here.</p>
+        <div class="table-scroll">
+          <table class="compare">
+            <thead>
+              <tr>
+                <th scope="col">Feature</th>
+                <th scope="col" class="us">Onelink</th>
+                <th scope="col">Typical paid tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Unlimited links</td><td class="us">Free</td><td>Paid</td></tr>
+              <tr><td>Custom themes &amp; effects</td><td class="us">Free</td><td>Paid</td></tr>
+              <tr><td>Any Google font</td><td class="us">Free</td><td>Paid</td></tr>
+              <tr><td>Click &amp; view analytics</td><td class="us">Free</td><td>Paid</td></tr>
+              <tr><td>Audio &amp; embeds</td><td class="us">Free</td><td>Paid</td></tr>
+              <tr><td>Remove branding</td><td class="us">Free</td><td>Paid</td></tr>
+              <tr><td>Bring your own domain</td><td class="us">Free</td><td>Paid</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="section section-alt">
+      <div class="wrap">
+        <h2 class="section-title">Questions people ask</h2>
+        <div class="faq">
+          <details>
+            <summary>Is it actually free, or free-for-now?</summary>
+            <p>Free. There's no premium tier to upsell you into — every feature listed here is available to every account.</p>
+          </details>
+          <details>
+            <summary>Then how is it paid for?</summary>
+            <p>Optional supporter perks and low running costs. Nothing that gates a core feature behind a paywall.</p>
+          </details>
+          <details>
+            <summary>Can I use my own domain?</summary>
+            <p>Yes — point a domain you own at your page and it'll serve from there, no extra charge.</p>
+          </details>
+          <details>
+            <summary>How long does setup take?</summary>
+            <p>About a minute. Claim a handle, paste a few links, pick a look, publish.</p>
+          </details>
+          <details>
+            <summary>Do I keep my analytics?</summary>
+            <p>Yes. Views and per-link clicks are tracked from day one and stay yours.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section cta-band">
+      <div class="wrap cta-inner">
+        <h2>Your handle is probably still free.</h2>
+        <a class="btn btn-primary" href="#claim">Grab it now</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span class="brand small">
+        <span class="brand-mark">@</span> Onelink
+      </span>
+      <nav class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <span class="footer-note">A free bio-link builder · demo template</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
