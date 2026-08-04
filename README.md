@@ -292,6 +292,27 @@ find it — but a few things still trip it up:
 - **Port clash on startup.** If the script itself won't start because port
   52000 is taken, pass another one: `python3 alexa_discord_mute.py --port 52001`.
 
+## Bundled utility: fishing_macro.py
+
+A small priority-aware timer scheduler, meant as the skeleton for a Roblox
+macro: one timer that keeps calling a fishing routine, and a second,
+higher-priority timer that fires periodically to use an item — pausing the
+fishing timer for the duration of the item use and resuming it right after.
+
+`fishing_macro.py` uses only Python's standard library. `start_fishing()`
+and `use_item()` are placeholders — fill them in with your actual input
+sequence (e.g. `adb shell input`/`sendevent` calls).
+
+```sh
+python3 fishing_macro.py                        # run both timers
+python3 fishing_macro.py --fish-every 5 --item-every 60
+```
+
+The two timers are plain `SetTimer` instances registered on a
+`PriorityTimerManager`; add more by calling `manager.add_timer(name,
+interval, callback, priority=...)` — any timer with a lower priority than
+the one currently firing gets paused for that call and resumed after.
+
 ---
 
 $$\Huge{\textsf{{\color{#e81416}a}{\color{#ffa500}d}{\color{#faeb36}e}{\color{#79c314}l}{\color{#487de7}n}{\color{#4b369d}o}{\color{#70369d}n}}}$$
